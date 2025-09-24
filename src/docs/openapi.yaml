@@ -1,0 +1,274 @@
+openapi: 3.0.0
+info:
+  title: ClinicKart E-commerce API
+  description: Comprehensive e-commerce API for ClinicKart platform
+  version: 1.0.0
+  contact:
+    name: ClinicKart Team
+    email: support@clinickart.com
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Development server
+  - url: https://api.clinickart.com/v1
+    description: Production server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check API health status
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  timestamp:
+                    type: string
+
+  /auth/login:
+    post:
+      summary: Universal login
+      description: Login for users, vendors, and admins
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                userType:
+                  type: string
+                  enum: [user, vendor, admin]
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid credentials
+
+  /vendors/register:
+    post:
+      summary: Register vendor
+      description: Create a new vendor account
+      tags:
+        - Vendors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                password:
+                  type: string
+                businessName:
+                  type: string
+                businessType:
+                  type: string
+                  enum: [pharmacy, clinic, hospital, laboratory, medical_equipment, other]
+                businessRegistrationNumber:
+                  type: string
+                address:
+                  type: object
+                  properties:
+                    street:
+                      type: string
+                    city:
+                      type: string
+                    state:
+                      type: string
+                    pincode:
+                      type: string
+      responses:
+        '201':
+          description: Vendor registered successfully
+        '400':
+          description: Validation error
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        userType:
+          type: string
+          enum: [USER, VENDOR, ADMIN]
+        status:
+          type: string
+          enum: [Active, Block]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Vendor:
+      type: object
+      properties:
+        _id:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        businessName:
+          type: string
+        businessType:
+          type: string
+        isEmailVerified:
+          type: boolean
+        isApproved:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Product:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        discountPrice:
+          type: number
+        category:
+          type: string
+        vendor:
+          type: string
+        stock:
+          type: number
+        images:
+          type: array
+          items:
+            type: object
+        isActive:
+          type: boolean
+        averageRating:
+          type: number
+        totalReviews:
+          type: number
+
+    Order:
+      type: object
+      properties:
+        _id:
+          type: string
+        orderId:
+          type: string
+        user:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+        totalAmount:
+          type: number
+        finalAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, processing, shipped, delivered, cancelled, returned]
+        paymentStatus:
+          type: string
+          enum: [pending, paid, failed, refunded]
+        createdAt:
+          type: string
+          format: date-time
+
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+        timestamp:
+          type: string
+          format: date-time
+
+tags:
+  - name: Authentication
+    description: Authentication endpoints
+  - name: Users
+    description: User management
+  - name: Vendors
+    description: Vendor management
+  - name: Admin
+    description: Admin operations
+  - name: Products
+    description: Product catalog
+  - name: Orders
+    description: Order management
+  - name: Payments
+    description: Payment processing
+  - name: Reviews
+    description: Product reviews and ratings
