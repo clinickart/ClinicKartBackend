@@ -27,6 +27,7 @@ clinicKart-backend/
 ├── .env
 ├── .gitignore
 ├── server.js                   # Server entry point
+├── logs/                       # Application logs
 │
 ├── src/
 │   ├── app.js                  # Express app setup
@@ -48,7 +49,8 @@ clinicKart-backend/
 │   │   ├── emailSender.js    # Email helper
 │   │   ├── smsSender.js      # SMS helper
 │   │   ├── logger.js         # Winston logger
-│   │   └── response.js       # Standard API response format
+│   │   ├── response.js       # Standard API response format
+│   │   └── pendingRegistrations.js # Temporary registration storage
 │   │
 │   ├── modules/              # Domain-driven modules
 │   │   │
@@ -67,6 +69,7 @@ clinicKart-backend/
 │   │   │
 │   │   ├── vendor/           # Vendor domain (COMPLETE)
 │   │   │   ├── vendor.model.js
+│   │   │   ├── vendorProfile.model.js  # Separate profile schema
 │   │   │   ├── vendor.controller.js
 │   │   │   ├── vendor.service.js
 │   │   │   ├── vendor.routes.js
@@ -138,6 +141,11 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
+4. **Email Configuration:**
+For Gmail setup, see detailed guide: [`GMAIL_SETUP.md`](./GMAIL_SETUP.md)
+
+*Note: The system automatically uses Ethereal Email for testing if Gmail credentials are not provided.*
+
 4. **Environment Variables:**
 ```env
 # Server
@@ -158,7 +166,7 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_app_password
-EMAIL_FROM=noreply@clinickart.com
+EMAIL_FROM=noreply@clinickart.co
 
 # Payment Gateways
 RAZORPAY_KEY_ID=your_razorpay_key_id
@@ -201,10 +209,11 @@ npm test
 - `POST /api/v1/auth/reset-password` - Reset password
 
 ### **Vendor Module (COMPLETE)**
-- `POST /api/v1/vendors/register` - Register vendor
+- `POST /api/v1/vendors/register` - Register vendor (step 1)
+- `POST /api/v1/vendors/verify-email` - Verify email OTP (step 2)
+- `POST /api/v1/vendors/setup-profile` - Complete profile setup (step 3)
 - `POST /api/v1/vendors/login` - Vendor login
 - `POST /api/v1/vendors/logout` - Vendor logout
-- `POST /api/v1/vendors/verify-email` - Verify email OTP
 - `POST /api/v1/vendors/resend-email-otp` - Resend email OTP
 - `GET /api/v1/vendors/profile` - Get vendor profile
 - `PUT /api/v1/vendors/profile` - Update vendor profile
@@ -254,17 +263,40 @@ Authorization: Bearer <your_jwt_token>
 
 ## 📝 API Examples
 
-### **Register Vendor**
+### **Register Vendor (3-Step Process)**
+
+**Step 1: Initial Registration**
 ```bash
 POST /api/v1/vendors/register
 Content-Type: application/json
 
 {
-  "firstName": "John",
-  "lastName": "Doe", 
-  "email": "john@pharmacy.com",
+  "firstName": "Hemant",
+  "lastName": "Krishna",
+  "email": "hemantkrishna5@gmail.com",
   "phone": "+1234567890",
-  "password": "SecurePass123",
+  "password": "SecurePass123"
+}
+```
+
+**Step 2: Verify Email**
+```bash
+POST /api/v1/vendors/verify-email
+Content-Type: application/json
+
+{
+  "email": "hemantkrishna5@gmail.com",
+  "otp": "123456"
+}
+```
+
+**Step 3: Complete Profile Setup**
+```bash
+POST /api/v1/vendors/setup-profile
+Authorization: Bearer <vendor_token>
+Content-Type: application/json
+
+{
   "businessName": "ABC Pharmacy",
   "businessType": "pharmacy",
   "businessRegistrationNumber": "REG123456",
@@ -283,8 +315,112 @@ POST /api/v1/vendors/login
 Content-Type: application/json
 
 {
-  "email": "john@pharmacy.com",
+  "email": "hemantkrishna5@gmail.com",
   "password": "SecurePass123"
+}
+```
+
+## 📋 API Response Examples
+
+### **Step 1: Vendor Registration Response**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Registration Step 1: Complete - Use OTP to verify",
+  "data": {
+    "message": "Registration initiated successfully! Please verify OTP to complete.",
+    "email": "hemantkrishna5@gmail.com",
+    "otp": "864707",
+    "nextStep": "email_verification",
+    "instructions": "Use the provided OTP to verify your email and complete registration",
+    "otpExpiresIn": "10 minutes"
+  },
+  "timestamp": "2025-09-24T18:27:19.894Z"
+}
+```
+
+### **Step 2: Email Verification Response**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Email verified and user created successfully!",
+  "data": {
+    "message": "Registration completed successfully! User created and email verified.",
+    "vendor": {
+      "id": "68d4382724706c449a2c8e99",
+      "firstName": "Hemant",
+      "lastName": "Krishna",
+      "email": "hemantkrishna5@gmail.com",
+      "isEmailVerified": true,
+      "isRegistrationComplete": true,
+      "registrationStep": "profile_setup",
+      "isProfileComplete": false,
+      "createdAt": "2025-09-24T18:27:51.395Z"
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZDQzODI3MjQ3MDZjNDQ5YTJjOGU5OSIsInJvbGUiOiJ2ZW5kb3IiLCJpYXQiOjE3NTg3Mzg0NzEsImV4cCI6MTc1ODgyNDg3MX0.15mMnMSk_vvpHTxsPOn7cbG_n_Y7NmsR6JjxyoRMocc",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZDQzODI3MjQ3MDZjNDQ5YTJjOGU5OSIsImlhdCI6MTc1ODczODQ3MSwiZXhwIjoxNzU5MzQzMjcxfQ.D6V_Q-BRimioVsW6c0cEgoQxxupcG1wXAzxNxIflI-8",
+      "expiresIn": "24h"
+    }
+  },
+  "timestamp": "2025-09-24T18:27:52.952Z"
+}
+```
+
+### **Vendor Login Response**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Login successful",
+  "data": {
+    "vendor": {
+      "id": "68d4382724706c449a2c8e99",
+      "firstName": "Hemant",
+      "lastName": "Krishna",
+      "email": "hemantkrishna5@gmail.com",
+      "isEmailVerified": true,
+      "isRegistrationComplete": true,
+      "isProfileComplete": false
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZDQzODI3MjQ3MDZjNDQ5YTJjOGU5OSIsInJvbGUiOiJ2ZW5kb3IiLCJpYXQiOjE3NTg3Mzg0NzEsImV4cCI6MTc1ODgyNDg3MX0.15mMnMSk_vvpHTxsPOn7cbG_n_Y7NmsR6JjxyoRMocc",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZDQzODI3MjQ3MDZjNDQ5YTJjOGU5OSIsImlhdCI6MTc1ODczODQ3MSwiZXhwIjoxNzU5MzQzMjcxfQ.D6V_Q-BRimioVsW6c0cEgoQxxupcG1wXAzxNxIflI-8",
+      "expiresIn": "24h"
+    }
+  },
+  "timestamp": "2025-09-24T18:27:52.952Z"
+}
+```
+
+### **Resend OTP Response**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "OTP resent successfully",
+  "data": {
+    "message": "New OTP has been sent to your email",
+    "email": "hemantkrishna5@gmail.com",
+    "otp": "924356",
+    "otpExpiresIn": "10 minutes"
+  },
+  "timestamp": "2025-09-24T18:30:15.123Z"
+}
+```
+
+### **Vendor Logout Response**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Logged out successfully",
+  "data": {
+    "message": "User has been logged out successfully"
+  },
+  "timestamp": "2025-09-24T18:35:20.456Z"
 }
 ```
 
@@ -370,11 +506,17 @@ Content-Type: application/json
 - Wishlist and preferences
 
 ### **Vendor Model**
-- Business information and registration
-- Address and service areas
-- Email/phone verification
-- Product categories
+- Basic vendor information and authentication
+- Email/phone verification status
+- Registration completion tracking
+
+### **VendorProfile Model** 
+- Detailed business information and registration
+- Address and service areas with GeoJSON
+- Business documents and compliance
+- Product categories and specializations
 - Ratings and reviews
+- Banking and tax information
 
 ### **Product Model**
 - Product details and specifications
@@ -409,6 +551,12 @@ npm test -- auth.test.js
 API documentation is available at:
 - **Development**: `http://localhost:5000/api/docs`
 - **OpenAPI Spec**: `/src/docs/openapi.yaml`
+
+### **Postman Collections**
+- **Environment**: `ClinicKart_Development.postman_environment.json`
+- **Vendor APIs**: `ClinicKart_Vendor_API.postman_collection.json`
+
+Import both files into Postman for complete API testing.
 
 ## 🚀 Deployment
 
@@ -449,9 +597,12 @@ pm2 monit
 - Add JSDoc comments
 - Follow REST API conventions
 
-## � Development Status
+## 📋 Development Status
 
-- ✅ **Vendor Module**: Complete (Registration, Auth, Profile, OTP)
+- ✅ **Vendor Module**: Complete (3-step registration, auth, profile setup, OTP)
+- ✅ **Email System**: Complete (Gmail + Ethereal fallback)
+- ✅ **Authentication**: Complete (JWT with refresh tokens)
+- ✅ **Validation & Middleware**: Complete (Auth, validation, error handling)
 - 🔄 **User Module**: Model ready, endpoints pending
 - 🔄 **Admin Module**: Basic structure, features pending
 - 🔄 **Product Module**: Model ready, CRUD pending
@@ -473,7 +624,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Email**: support@clinickart.com
+- **Email**: support@clinickart.co
 - **Documentation**: [API Docs](http://localhost:5000/api/docs)
 - **Issues**: [GitHub Issues](https://github.com/clinickart/backend/issues)
 
